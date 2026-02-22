@@ -3,6 +3,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import Dashboard from "@/pages/Dashboard";
 import Clients from "@/pages/Clients";
+import ClientDetail from "@/pages/ClientDetail";
 import Plans from "@/pages/Plans";
 import Health from "@/pages/Health";
 import SASettings from "@/pages/SASettings";
@@ -37,6 +38,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="clients" element={<Clients />} />
+          <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="plans" element={<Plans />} />
           <Route path="health" element={<Health />} />
           <Route path="settings" element={<SASettings />} />

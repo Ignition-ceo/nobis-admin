@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Plus, Pencil, Trash2, Loader2, Users, ToggleLeft, ToggleRight } from "lucide-react";
 
 export default function Clients() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -107,7 +109,7 @@ export default function Clients() {
               </TableHeader>
               <TableBody>
                 {clients.map((c) => (
-                  <TableRow key={c._id}>
+                  <TableRow key={c._id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/clients/${c._id}`)}>
                     <TableCell>
                       <p className="font-medium text-sm">{c.firstName} {c.lastName}</p>
                       <p className="text-xs text-slate-400">{c.email}</p>
