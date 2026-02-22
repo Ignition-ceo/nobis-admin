@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Loader2, Building2, Users, FileCheck, Shield, Settings, Mail, Phone, Key, ToggleRight, ToggleLeft, Save } from "lucide-react";
@@ -34,6 +35,7 @@ export default function ClientDetail() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", companyName: "", phone: "", isActive: true, maxApplicants: 100, rateLimit: 1000 });
+  const [screeningForm, setScreeningForm] = useState({ provider: "open_sanctions", threshold: 0.7, dataset: "default" });
   const [selectedPlans, setSelectedPlans] = useState<string[]>([]);
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function ClientDetail() {
         setAllPlans(pr.data.plans || []);
         setForm({ firstName: c.firstName || "", lastName: c.lastName || "", email: c.email || "", companyName: c.companyName || "", phone: c.phone || "", isActive: c.isActive ?? true, maxApplicants: c.maxApplicants || 100, rateLimit: c.rateLimit || 1000 });
         setSelectedPlans((c.subscriptionPlans || []).map((p: any) => p._id?.toString() || p.toString()));
+        setScreeningForm({ provider: c.screeningConfig?.provider || "open_sanctions", threshold: c.screeningConfig?.threshold ?? 0.7, dataset: c.screeningConfig?.dataset || "default" });
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
@@ -56,6 +59,7 @@ export default function ClientDetail() {
     try {
       await api.patch(`/super-admin/clients/${id}`, form);
       await api.patch(`/super-admin/clients/${id}/plans`, { planIds: selectedPlans });
+      await api.patch(`/super-admin/clients/${id}`, { screeningConfig: screeningForm });
       setSaved(true); setTimeout(() => setSaved(false), 3000);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
@@ -202,12 +206,44 @@ export default function ClientDetail() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="text-base">Screening Configuration</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4" />Screening Configuration</CardTitle><CardDescription>AML/sanctions screening provider assigned to this client</CardDescription></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-3 rounded-lg bg-slate-50"><p className="text-xs text-slate-500 uppercase">Provider</p><p className="text-sm font-medium mt-1">{client.screeningConfig?.provider || "default"}</p></div>
-                <div className="p-3 rounded-lg bg-slate-50"><p className="text-xs text-slate-500 uppercase">Threshold</p><p className="text-sm font-medium mt-1">{client.screeningConfig?.threshold || 0.7}</p></div>
-                <div className="p-3 rounded-lg bg-slate-50"><p className="text-xs text-slate-500 uppercase">Dataset</p><p className="text-sm font-medium mt-1">{client.screeningConfig?.dataset || "default"}</p></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select value={screeningForm.provider} onValueChange={(v) => setScreeningForm({ ...screeningForm, provider: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open_sanctions">OpenSanctions</SelectItem>
+                      <SelectItem value="aml_watcher">AML Watcher</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Match Threshold</Label>
+                  <Select value={screeningForm.threshold.toString()} onValueChange={(v) => setScreeningForm({ ...screeningForm, threshold: parseFloat(v) })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0.5">0.50 — Broad</SelectItem>
+                      <SelectItem value="0.6">0.60 — Moderate</SelectItem>
+                      <SelectItem value="0.7">0.70 — Balanced</SelectItem>
+                      <SelectItem value="0.8">0.80 — Strict</SelectItem>
+                      <SelectItem value="0.9">0.90 — Very strict</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Dataset</Label>
+                  <Select value={screeningForm.dataset} onValueChange={(v) => setScreeningForm({ ...screeningForm, dataset: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">All Lists (Full KYC)</SelectItem>
+                      <SelectItem value="sanctions">Sanctions Only</SelectItem>
+                      <SelectItem value="peps">PEPs Only</SelectItem>
+                      <SelectItem value="crime">Criminal Watchlists</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
