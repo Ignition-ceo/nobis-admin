@@ -13,18 +13,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Loader2, Building2, Users, FileCheck, Shield, Settings, Mail, Phone, Key, ToggleRight, ToggleLeft, Save } from "lucide-react";
 
-const FEATURES = [
-  { key: "idVerification", label: "ID Verification", desc: "Document scanning and OCR" },
-  { key: "livenessCheck", label: "Liveness Check", desc: "Facial liveness detection" },
-  { key: "proofOfAddress", label: "Proof of Address", desc: "Address document verification" },
-  { key: "fraudChecks", label: "Fraud Checks", desc: "Risk scoring and fraud detection" },
-  { key: "amlScreening", label: "AML Screening", desc: "Anti-money laundering checks" },
-  { key: "sanctionsScreening", label: "Sanctions Screening", desc: "Global sanctions screening" },
-  { key: "biometricMatching", label: "Biometric Matching", desc: "Face match ID vs selfie" },
-  { key: "webhooks", label: "Webhooks", desc: "Real-time notifications" },
-  { key: "apiAccess", label: "API Access", desc: "REST API and SDK access" },
-  { key: "batchProcessing", label: "Batch Processing", desc: "Bulk applicant processing" },
-];
+const MODULE_INFO: Record<string, { label: string; desc: string; icon: string }> = {
+  phone: { label: "Phone Verification", desc: "SMS/voice code verification", icon: "📱" },
+  email: { label: "Email Verification", desc: "Email code verification", icon: "📧" },
+  idDocument: { label: "ID Document", desc: "Document scanning and OCR", icon: "🪪" },
+  selfie: { label: "Selfie / Liveness", desc: "Facial liveness and biometric match", icon: "🤳" },
+  proofOfAddress: { label: "Proof of Address", desc: "Address document verification", icon: "🏠" },
+};
+const RISK_LEVELS = ["Off", "Basic", "Full"];
+const SANCTIONS_LEVELS = ["Off", "Basic", "Full"];
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -139,14 +136,48 @@ export default function ClientDetail() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="text-base">Active Features</CardTitle><CardDescription>Features available based on assigned plans</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-base">Active Verification Modules</CardTitle><CardDescription>Modules enabled by assigned plans</CardDescription></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {FEATURES.map((f) => { const on = client.activeFeatures?.[f.key] || false; return (
-                  <div key={f.key} className={`flex items-center gap-3 p-3 rounded-lg border ${on ? "border-emerald-200 bg-emerald-50" : "border-slate-100 bg-slate-50"}`}>
-                    <div className={`h-2 w-2 rounded-full ${on ? "bg-emerald-500" : "bg-slate-300"}`} />
-                    <div><p className="text-sm font-medium text-slate-700">{f.label}</p><p className="text-xs text-slate-400">{f.desc}</p></div>
-                  </div>); })}
+                {(() => {
+                  const activeModules = new Set<string>();
+                  let maxRisk = 0, maxSanctions = 0;
+                  allPlans.filter((p: any) => selectedPlans.includes(p._id)).forEach((p: any) => {
+                    (p.intakeModules || []).forEach((m: string) => activeModules.add(m));
+                    if (p.defaults?.riskLevel > maxRisk) maxRisk = p.defaults.riskLevel;
+                    if (p.defaults?.sanctionsLevel > maxSanctions) maxSanctions = p.defaults.sanctionsLevel;
+                  });
+                  return Object.entries(MODULE_INFO).map(([key, info]) => {
+                    const on = activeModules.has(key);
+                    return (
+                      <div key={key} className={`flex items-center gap-3 p-3 rounded-lg border ${on ? "border-emerald-200 bg-emerald-50" : "border-slate-100 bg-slate-50"}`}>
+                        <span className="text-lg">{info.icon}</span>
+                        <div className="flex-1"><p className="text-sm font-medium text-slate-700">{info.label}</p><p className="text-xs text-slate-400">{info.desc}</p></div>
+                        <Badge variant={on ? "default" : "secondary"} className={on ? "bg-emerald-500" : ""}>{on ? "Active" : "Inactive"}</Badge>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <Separator className="my-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(() => {
+                  let maxRisk = 0, maxSanctions = 0;
+                  allPlans.filter((p: any) => selectedPlans.includes(p._id)).forEach((p: any) => {
+                    if (p.defaults?.riskLevel > maxRisk) maxRisk = p.defaults.riskLevel;
+                    if (p.defaults?.sanctionsLevel > maxSanctions) maxSanctions = p.defaults.sanctionsLevel;
+                  });
+                  return [
+                    { label: "Risk & Fraud Checks", level: maxRisk, levels: RISK_LEVELS, icon: "⚠️" },
+                    { label: "AML / Sanctions Screening", level: maxSanctions, levels: SANCTIONS_LEVELS, icon: "🛡️" },
+                  ].map((item) => (
+                    <div key={item.label} className={`flex items-center gap-3 p-3 rounded-lg border ${item.level > 0 ? "border-blue-200 bg-blue-50" : "border-slate-100 bg-slate-50"}`}>
+                      <span className="text-lg">{item.icon}</span>
+                      <div className="flex-1"><p className="text-sm font-medium text-slate-700">{item.label}</p><p className="text-xs text-slate-400">Level: {item.levels[item.level]}</p></div>
+                      <Badge variant={item.level > 0 ? "default" : "secondary"} className={item.level === 2 ? "bg-blue-600" : item.level === 1 ? "bg-blue-400" : ""}>{item.levels[item.level]}</Badge>
+                    </div>
+                  ));
+                })()}
               </div>
             </CardContent>
           </Card>
