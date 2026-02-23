@@ -160,6 +160,48 @@ export default function ClientDetail() {
               </div>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4" />Screening Configuration</CardTitle><CardDescription>AML/sanctions screening provider assigned to this client</CardDescription></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select value={screeningForm.provider} onValueChange={(v) => setScreeningForm({ ...screeningForm, provider: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open_sanctions">OpenSanctions</SelectItem>
+                      <SelectItem value="aml_watcher">AML Watcher</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Match Threshold</Label>
+                  <Select value={screeningForm.threshold.toString()} onValueChange={(v) => setScreeningForm({ ...screeningForm, threshold: parseFloat(v) })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0.5">0.50 — Broad</SelectItem>
+                      <SelectItem value="0.6">0.60 — Moderate</SelectItem>
+                      <SelectItem value="0.7">0.70 — Balanced</SelectItem>
+                      <SelectItem value="0.8">0.80 — Strict</SelectItem>
+                      <SelectItem value="0.9">0.90 — Very strict</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Dataset</Label>
+                  <Select value={screeningForm.dataset} onValueChange={(v) => setScreeningForm({ ...screeningForm, dataset: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">All Lists (Full KYC)</SelectItem>
+                      <SelectItem value="sanctions">Sanctions Only</SelectItem>
+                      <SelectItem value="peps">PEPs Only</SelectItem>
+                      <SelectItem value="crime">Criminal Watchlists</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="applicants" className="mt-4">
           <Card>
@@ -205,48 +247,7 @@ export default function ClientDetail() {
               ) : <p className="text-sm text-slate-400 py-4">No org members configured</p>}
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4" />Screening Configuration</CardTitle><CardDescription>AML/sanctions screening provider assigned to this client</CardDescription></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Provider</Label>
-                  <Select value={screeningForm.provider} onValueChange={(v) => setScreeningForm({ ...screeningForm, provider: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open_sanctions">OpenSanctions</SelectItem>
-                      <SelectItem value="aml_watcher">AML Watcher</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Match Threshold</Label>
-                  <Select value={screeningForm.threshold.toString()} onValueChange={(v) => setScreeningForm({ ...screeningForm, threshold: parseFloat(v) })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0.5">0.50 — Broad</SelectItem>
-                      <SelectItem value="0.6">0.60 — Moderate</SelectItem>
-                      <SelectItem value="0.7">0.70 — Balanced</SelectItem>
-                      <SelectItem value="0.8">0.80 — Strict</SelectItem>
-                      <SelectItem value="0.9">0.90 — Very strict</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Dataset</Label>
-                  <Select value={screeningForm.dataset} onValueChange={(v) => setScreeningForm({ ...screeningForm, dataset: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">All Lists (Full KYC)</SelectItem>
-                      <SelectItem value="sanctions">Sanctions Only</SelectItem>
-                      <SelectItem value="peps">PEPs Only</SelectItem>
-                      <SelectItem value="crime">Criminal Watchlists</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
         </TabsContent>
       </Tabs>
     </div>
