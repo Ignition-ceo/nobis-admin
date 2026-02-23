@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, CheckCircle, Building2, Shield, User, Mail, Lock, Phone, Users as UsersIcon } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, CheckCircle, Building2, Shield, User, Mail, Lock, Phone, Users as UsersIcon, Download, Globe } from "lucide-react";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ export default function Clients() {
   // Onboard modal
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [onboardForm, setOnboardForm] = useState({
-    companyName: "", firstName: "", lastName: "", email: "", password: "", phone: "", maxApplicants: "1000",
+    companyName: "", firstName: "", lastName: "", email: "", password: "", phone: "", maxApplicants: "1000", portalDomain: "platform.getnobis.com",
   });
   const [onboarding, setOnboarding] = useState(false);
   const [onboardResult, setOnboardResult] = useState<any>(null);
@@ -71,7 +71,7 @@ export default function Clients() {
 
   // ─── Onboard Client ───────────────────────────────
   const openOnboard = () => {
-    setOnboardForm({ companyName: "", firstName: "", lastName: "", email: "", password: "", phone: "", maxApplicants: "1000" });
+    setOnboardForm({ companyName: "", firstName: "", lastName: "", email: "", password: "", phone: "", maxApplicants: "1000", portalDomain: "platform.getnobis.com" });
     setOnboardResult(null);
     setOnboardError("");
     setOnboardOpen(true);
@@ -90,12 +90,47 @@ export default function Clients() {
         phone: onboardForm.phone || undefined,
         maxApplicants: parseInt(onboardForm.maxApplicants) || 1000,
       });
+      // Attach the portal domain to the result for display + CSV
+      res.data._portalDomain = onboardForm.portalDomain;
       setOnboardResult(res.data);
       fetchClients();
     } catch (e: any) {
       setOnboardError(e?.response?.data?.message || e?.message || "Onboarding failed");
     }
     finally { setOnboarding(false); }
+  };
+
+  // ─── CSV Download ──────────────────────────────────
+  const downloadCSV = () => {
+    if (!onboardResult) return;
+    const r = onboardResult;
+    const domain = r._portalDomain || "platform.getnobis.com";
+    const rows = [
+      ["Field", "Value"],
+      ["Company", r.client.companyName],
+      ["Admin Name", `${onboardForm.firstName} ${onboardForm.lastName}`],
+      ["Admin Email", r.client.email],
+      ["Temporary Password", onboardForm.password],
+      ["Client ID", r.client.id],
+      ["API Key (oauthClientId)", r.client.oauthClientId],
+      ["Auth0 Org ID", r.auth0.orgId],
+      ["Auth0 Org Name (login slug)", r.auth0.orgName],
+      ["Auth0 User ID", r.auth0.userId],
+      ["Auth0 User Status", r.auth0.userStatus],
+      ["Portal URL", `https://${domain}`],
+      ["Login Step 1", `Go to https://${domain}`],
+      ["Login Step 2", `Enter organization name: ${r.auth0.orgName}`],
+      ["Login Step 3", `Sign in with: ${r.client.email}`],
+      ["Onboarded At", new Date().toISOString()],
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${r.client.companyName.toLowerCase().replace(/\s+/g, "-")}-onboarding-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const toggleStatus = async (e: React.MouseEvent, id: string, current: boolean) => {
@@ -278,22 +313,25 @@ export default function Clients() {
                         {onboardResult.auth0.userStatus}
                       </Badge>
                     </div>
-                    <div><span className="text-slate-400">Login Org:</span> <span className="font-medium">{onboardResult.auth0.orgName}</span></div>
+                    <div><span className="text-slate-400">Portal:</span> <span className="font-medium">{onboardResult._portalDomain}</span></div>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
                   <p className="font-medium mb-1">Login Instructions for Client:</p>
                   <ol className="list-decimal list-inside space-y-1 text-xs">
-                    <li>Go to <span className="font-mono">platform.getnobis.com</span></li>
+                    <li>Go to <span className="font-mono">{onboardResult._portalDomain}</span></li>
                     <li>Enter organization name: <span className="font-mono font-bold">{onboardResult.auth0.orgName}</span></li>
                     <li>Sign in with: <span className="font-bold">{onboardResult.client.email}</span></li>
                   </ol>
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button onClick={() => setOnboardOpen(false)} className="w-full">Done</Button>
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={downloadCSV} className="gap-2">
+                  <Download className="h-4 w-4" />Download CSV
+                </Button>
+                <Button onClick={() => setOnboardOpen(false)}>Done</Button>
               </DialogFooter>
             </div>
           ) : (
@@ -345,6 +383,18 @@ export default function Clients() {
                   <Label className="flex items-center gap-1.5"><UsersIcon className="h-3.5 w-3.5 text-slate-400" />Max Applicants</Label>
                   <Input type="number" value={onboardForm.maxApplicants} onChange={(e) => setOnboardForm({ ...onboardForm, maxApplicants: e.target.value })} />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-slate-400" />Portal Domain</Label>
+                <Select value={onboardForm.portalDomain} onValueChange={(v) => setOnboardForm({ ...onboardForm, portalDomain: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="platform.getnobis.com">platform.getnobis.com (General SaaS)</SelectItem>
+                    <SelectItem value="portal.getnobis.com">portal.getnobis.com (TSTT / Dedicated)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">Which portal URL should the client use to log in</p>
               </div>
 
               <DialogFooter className="pt-2">
