@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, CheckCircle, Building2, Shield, User, Mail, Lock, Phone, Users as UsersIcon, Download, Globe } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, CheckCircle, Building2, Shield, User, Mail, Lock, Phone, Users as UsersIcon, Download, Globe, AlertTriangle, XCircle } from "lucide-react";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -34,6 +34,16 @@ export default function Clients() {
   const [onboarding, setOnboarding] = useState(false);
   const [onboardResult, setOnboardResult] = useState<any>(null);
   const [onboardError, setOnboardError] = useState("");
+
+  // Delete modal (2-step)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deletePreview, setDeletePreview] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<any>(null);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -90,7 +100,6 @@ export default function Clients() {
         phone: onboardForm.phone || undefined,
         maxApplicants: parseInt(onboardForm.maxApplicants) || 1000,
       });
-      // Attach the portal domain to the result for display + CSV
       res.data._portalDomain = onboardForm.portalDomain;
       setOnboardResult(res.data);
       fetchClients();
@@ -133,20 +142,46 @@ export default function Clients() {
     URL.revokeObjectURL(url);
   };
 
+  // ─── Delete Client (2-step) ────────────────────────
+  const openDelete = async (e: React.MouseEvent, client: any) => {
+    e.stopPropagation();
+    setDeleteTarget(client);
+    setDeleteStep(1);
+    setDeletePreview(null);
+    setDeleteConfirmText("");
+    setDeleteResult(null);
+    setDeleteOpen(true);
+    setDeleteLoading(true);
+    try {
+      const res = await api.get(`/super-admin/clients/${client._id}/preview-delete`);
+      setDeletePreview(res.data);
+    } catch (e: any) {
+      setDeletePreview({ error: e?.response?.data?.message || "Failed to load preview" });
+    }
+    finally { setDeleteLoading(false); }
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await api.delete(`/super-admin/clients/${deleteTarget._id}`);
+      setDeleteResult(res.data);
+      fetchClients();
+    } catch (e: any) {
+      setDeleteResult({ success: false, message: e?.response?.data?.message || "Delete failed" });
+    }
+    finally { setDeleting(false); }
+  };
+
   const toggleStatus = async (e: React.MouseEvent, id: string, current: boolean) => {
     e.stopPropagation();
     await api.patch(`/super-admin/clients/${id}/status`, { isActive: !current });
     fetchClients();
   };
 
-  const deleteClient = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!confirm("Delete this client? This cannot be undone.")) return;
-    await api.delete(`/super-admin/clients/${id}`);
-    fetchClients();
-  };
-
   const isOnboardFormValid = onboardForm.companyName && onboardForm.firstName && onboardForm.lastName && onboardForm.email && onboardForm.password && onboardForm.password.length >= 8;
+
+  const expectedConfirmText = deleteTarget?.companyName || deleteTarget?.email || "";
 
   return (
     <div className="space-y-6">
@@ -218,7 +253,7 @@ export default function Clients() {
                         <Button variant="ghost" size="sm" onClick={(e) => toggleStatus(e, c._id, c.isActive)}>
                           {c.isActive ? <ToggleRight className="h-4 w-4 text-emerald-600" /> : <ToggleLeft className="h-4 w-4 text-slate-400" />}
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={(e) => deleteClient(e, c._id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        <Button variant="ghost" size="sm" onClick={(e) => openDelete(e, c)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -232,7 +267,6 @@ export default function Clients() {
             </Table>
           )}
 
-          {/* Pagination */}
           {total > 25 && (
             <div className="flex justify-between items-center mt-4 pt-4 border-t">
               <span className="text-sm text-slate-500">Page {page} of {Math.ceil(total / 25)}</span>
@@ -280,16 +314,12 @@ export default function Clients() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Success View */}
           {onboardResult ? (
             <div className="space-y-4 py-2">
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
                 <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-medium text-emerald-800">{onboardResult.message}</p>
-                </div>
+                <p className="font-medium text-emerald-800">{onboardResult.message}</p>
               </div>
-
               <div className="grid gap-3">
                 <div className="bg-slate-50 rounded-lg p-3 space-y-2">
                   <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Client</p>
@@ -300,11 +330,8 @@ export default function Clients() {
                     <div><span className="text-slate-400">API Key:</span> <span className="font-mono text-xs">{onboardResult.client.oauthClientId}</span></div>
                   </div>
                 </div>
-
                 <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                  <p className="text-xs font-medium text-blue-500 uppercase tracking-wide flex items-center gap-1">
-                    <Shield className="h-3 w-3" /> Auth0
-                  </p>
+                  <p className="text-xs font-medium text-blue-500 uppercase tracking-wide flex items-center gap-1"><Shield className="h-3 w-3" /> Auth0</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div><span className="text-slate-400">Org ID:</span> <span className="font-mono text-xs">{onboardResult.auth0.orgId}</span></div>
                     <div><span className="text-slate-400">Org Name:</span> <span className="font-medium">{onboardResult.auth0.orgName}</span></div>
@@ -316,7 +343,6 @@ export default function Clients() {
                     <div><span className="text-slate-400">Portal:</span> <span className="font-medium">{onboardResult._portalDomain}</span></div>
                   </div>
                 </div>
-
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
                   <p className="font-medium mb-1">Login Instructions for Client:</p>
                   <ol className="list-decimal list-inside space-y-1 text-xs">
@@ -326,31 +352,21 @@ export default function Clients() {
                   </ol>
                 </div>
               </div>
-
               <DialogFooter className="flex gap-2">
-                <Button variant="outline" onClick={downloadCSV} className="gap-2">
-                  <Download className="h-4 w-4" />Download CSV
-                </Button>
+                <Button variant="outline" onClick={downloadCSV} className="gap-2"><Download className="h-4 w-4" />Download CSV</Button>
                 <Button onClick={() => setOnboardOpen(false)}>Done</Button>
               </DialogFooter>
             </div>
           ) : (
-            /* Onboard Form */
             <div className="space-y-4 py-2">
               {onboardError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{onboardError}</div>
               )}
-
               <div className="space-y-1">
                 <Label className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-slate-400" />Company Name</Label>
-                <Input
-                  placeholder="e.g. TSTT, Digicel, Republic Bank"
-                  value={onboardForm.companyName}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, companyName: e.target.value })}
-                />
+                <Input placeholder="e.g. TSTT, Digicel, Republic Bank" value={onboardForm.companyName} onChange={(e) => setOnboardForm({ ...onboardForm, companyName: e.target.value })} />
                 <p className="text-xs text-slate-400">This becomes the Auth0 org name (e.g., "TSTT" → org slug "tstt")</p>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-slate-400" />First Name</Label>
@@ -361,19 +377,16 @@ export default function Clients() {
                   <Input placeholder="Doe" value={onboardForm.lastName} onChange={(e) => setOnboardForm({ ...onboardForm, lastName: e.target.value })} />
                 </div>
               </div>
-
               <div className="space-y-1">
                 <Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-400" />Admin Email</Label>
                 <Input type="email" placeholder="admin@company.com" value={onboardForm.email} onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })} />
                 <p className="text-xs text-slate-400">This person becomes the org admin and can add team members</p>
               </div>
-
               <div className="space-y-1">
                 <Label className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-slate-400" />Temporary Password</Label>
                 <Input type="password" placeholder="Min 8 characters" value={onboardForm.password} onChange={(e) => setOnboardForm({ ...onboardForm, password: e.target.value })} />
                 <p className="text-xs text-slate-400">Client should change this on first login</p>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400" />Phone (optional)</Label>
@@ -384,7 +397,6 @@ export default function Clients() {
                   <Input type="number" value={onboardForm.maxApplicants} onChange={(e) => setOnboardForm({ ...onboardForm, maxApplicants: e.target.value })} />
                 </div>
               </div>
-
               <div className="space-y-1">
                 <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-slate-400" />Portal Domain</Label>
                 <Select value={onboardForm.portalDomain} onValueChange={(v) => setOnboardForm({ ...onboardForm, portalDomain: v })}>
@@ -396,18 +408,146 @@ export default function Clients() {
                 </Select>
                 <p className="text-xs text-slate-400">Which portal URL should the client use to log in</p>
               </div>
-
               <DialogFooter className="pt-2">
                 <Button variant="outline" onClick={() => setOnboardOpen(false)}>Cancel</Button>
+                <Button onClick={runOnboard} disabled={onboarding || !isOnboardFormValid} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                  {onboarding ? <><Loader2 className="h-4 w-4 animate-spin" />Onboarding...</> : <><Shield className="h-4 w-4" />Onboard Client</>}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Delete Client Modal (2-Step) ──────────────── */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!deleting) setDeleteOpen(open); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              {deleteResult ? (deleteResult.success ? "Client Removed" : "Delete Failed") : "Delete Client"}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteResult
+                ? (deleteResult.success ? "All data has been permanently removed." : "Something went wrong.")
+                : "This action is permanent and cannot be undone."
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Delete Result */}
+          {deleteResult ? (
+            <div className="space-y-4 py-2">
+              {deleteResult.success ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-emerald-800">{deleteResult.message}</p>
+                    {deleteResult.cleanup && (
+                      <div className="mt-2 text-xs text-emerald-700 space-y-1">
+                        <p>Auth0 Org deleted: {deleteResult.cleanup.auth0?.org ? "Yes" : "No"}</p>
+                        <p>Applicants removed: {deleteResult.cleanup.mongo?.applicants || 0}</p>
+                        <p>Verifications removed: {deleteResult.cleanup.mongo?.verifications || 0}</p>
+                        <p>Audit events removed: {deleteResult.cleanup.mongo?.auditEvents || 0}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                  <p className="font-medium text-red-800">{deleteResult.message}</p>
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => setDeleteOpen(false)}>Close</Button>
+              </DialogFooter>
+            </div>
+          ) : deleteStep === 1 ? (
+            /* Step 1: Preview */
+            <div className="space-y-4 py-2">
+              {deleteLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+              ) : deletePreview?.error ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">{deletePreview.error}</div>
+              ) : deletePreview ? (
+                <>
+                  <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+                    <p className="font-medium text-sm">{deletePreview.client.companyName}</p>
+                    <p className="text-xs text-slate-400">{deletePreview.client.email}</p>
+                    {deletePreview.client.auth0OrgId && (
+                      <p className="text-xs text-slate-400">Auth0 Org: <span className="font-mono">{deletePreview.client.auth0OrgId}</span></p>
+                    )}
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-red-800 mb-3">The following will be permanently deleted:</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-red-700">
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{deletePreview.willDelete.applicants} applicants</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{deletePreview.willDelete.verifications} verifications</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{deletePreview.willDelete.auditEvents} audit events</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{deletePreview.willDelete.auth0Users} Auth0 users</span>
+                      </div>
+                      {deletePreview.willDelete.auth0Org && (
+                        <div className="flex items-center gap-2 col-span-2">
+                          <Shield className="h-3.5 w-3.5" />
+                          <span>Auth0 Organization will be deleted</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
                 <Button
-                  onClick={runOnboard}
-                  disabled={onboarding || !isOnboardFormValid}
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  variant="destructive"
+                  onClick={() => setDeleteStep(2)}
+                  disabled={deleteLoading || deletePreview?.error}
                 >
-                  {onboarding ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Onboarding...</>
+                  Continue to Delete
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            /* Step 2: Type confirmation */
+            <div className="space-y-4 py-2">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800 mb-3">
+                  To confirm deletion, type <span className="font-bold font-mono bg-red-100 px-1.5 py-0.5 rounded">{expectedConfirmText}</span> below:
+                </p>
+                <Input
+                  placeholder={`Type "${expectedConfirmText}" to confirm`}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="border-red-300 focus:border-red-500"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteStep(1)}>Back</Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDelete}
+                  disabled={deleting || deleteConfirmText !== expectedConfirmText}
+                  className="gap-2"
+                >
+                  {deleting ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Deleting...</>
                   ) : (
-                    <><Shield className="h-4 w-4" />Onboard Client</>
+                    <><Trash2 className="h-4 w-4" />Permanently Delete</>
                   )}
                 </Button>
               </DialogFooter>
