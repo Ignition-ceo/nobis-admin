@@ -7,8 +7,8 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  // Get token from Auth0
   const token = localStorage.getItem("sa_token");
+  console.log("sa_token present:", !!token, token ? token.substring(0, 30) + "..." : "MISSING");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -18,10 +18,8 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("sa_token");
-      window.location.href = "/login";
-    }
+    console.error("API error:", error.response?.status, error.response?.data);
+    // Removed auto-redirect to stop the 401 loop
     return Promise.reject(error);
   }
 );

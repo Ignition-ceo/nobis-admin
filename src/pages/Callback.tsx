@@ -14,8 +14,11 @@ export default function Callback() {
         done.current = true;
         try {
           const token = await getAccessTokenSilently();
+          console.log("Token acquired successfully:", token.substring(0, 30) + "...");
           localStorage.setItem("sa_token", token);
-        } catch {}
+        } catch (err) {
+          console.error("getAccessTokenSilently failed:", err);
+        }
         navigate("/dashboard", { replace: true });
       }
     };
